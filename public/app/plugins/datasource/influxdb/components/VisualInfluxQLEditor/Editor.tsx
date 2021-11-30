@@ -11,6 +11,7 @@ import {
   getAllMeasurementsForTags,
   getAllPolicies,
   getFieldKeysForMeasurement,
+  getTagKeysForMeasurement,
   getTagKeysForMeasurementAndTags,
   getTagValues,
 } from '../../influxQLMetadataQuery';
@@ -58,6 +59,12 @@ export const Editor = (props: Props): JSX.Element => {
   const { datasource } = props;
   const { measurement, policy } = query;
 
+  const allTagKeys = useMemo(() => {
+    return getTagKeysForMeasurement(measurement, policy, datasource).then((tags) => {
+      return new Set(tags);
+    });
+  }, [measurement, policy, datasource]);
+
   const selectLists = useMemo(() => {
     const dynamicSelectPartOptions = new Map([
       [
@@ -75,8 +82,12 @@ export const Editor = (props: Props): JSX.Element => {
   // the following function is not complicated enough to memoize, but it's result
   // is used in both memoized and un-memoized parts, so we have no choice
   const getTagKeys = useMemo(() => {
-    return () => getTagKeysForMeasurementAndTags(measurement, policy, query.tags ?? [], datasource);
-  }, [measurement, policy, query.tags, datasource]);
+    return () =>
+      allTagKeys.then((keys) => {
+        const filteredTags = (query.tags ?? []).filter((t) => keys.has(t.key));
+        return getTagKeysForMeasurementAndTags(measurement, policy, filteredTags, datasource);
+      });
+  }, [measurement, policy, query.tags, datasource, allTagKeys]);
 
   const groupByList = useMemo(() => {
     const dynamicGroupByPartOptions = new Map([['tag_0', getTagKeys]]);
@@ -126,7 +137,12 @@ export const Editor = (props: Props): JSX.Element => {
           onChange={handleTagsSectionChange}
           getTagKeyOptions={getTagKeys}
           getTagValueOptions={(key: string) =>
-            withTemplateVariableOptions(getTagValues(key, measurement, policy, query.tags ?? [], datasource))
+            withTemplateVariableOptions(
+              allTagKeys.then((keys) => {
+                const filteredTags = (query.tags ?? []).filter((t) => keys.has(t.key));
+                return getTagValues(key, measurement, policy, filteredTags, datasource);
+              })
+            )
           }
         />
       </SegmentSection>

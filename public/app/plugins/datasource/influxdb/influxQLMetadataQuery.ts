@@ -41,6 +41,16 @@ export async function getTagKeysForMeasurementAndTags(
   return data.map((item) => item.text);
 }
 
+export async function getTagKeysForMeasurement(
+  measurement: string | undefined,
+  policy: string | undefined,
+  datasource: InfluxDatasource
+): Promise<string[]> {
+  const target = { tags: [], measurement, policy };
+  const data = await runExploreQuery('TAG_KEYS', undefined, undefined, target, datasource);
+  return data.map((item) => item.text);
+}
+
 export async function getTagValues(
   tagKey: string,
   measurement: string | undefined,
